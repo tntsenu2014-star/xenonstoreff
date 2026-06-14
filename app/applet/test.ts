@@ -1,0 +1,1 @@
+async function run() { try { const r = await fetch('http://localhost:3000/api/db/banners'); const t = await r.text(); console.log(r.status); console.log(t.substring(0, 200)); } catch (e) { console.error(e); } } run();

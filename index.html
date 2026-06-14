@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script type="text/javascript">
+      // Protect window.fetch from throwing errors on reassignment in sandboxed iframes
+      (function() {
+        var originalFetch = window.fetch;
+        var activeFetch = originalFetch;
+        try {
+          Object.defineProperty(window, 'fetch', {
+            configurable: true,
+            enumerable: true,
+            get: function() {
+              return activeFetch;
+            },
+            set: function(val) {
+              activeFetch = val;
+            }
+          });
+        } catch (e) {
+          console.error('Failed to patch window.fetch property descriptor:', e);
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xenon Store</title>
+    <link rel="icon" type="image/png" href="https://i.postimg.cc/L4QDxTxM/Chat-GPT-Image-Jun-13-2026-06-24-44-PM.png">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Xenon Store offers the fastest, most secure Free Fire diamond top-ups and shell stock at the best prices. Enjoy instant delivery, automated membership processing, premium account market, coupons, and 24/7 dedicated support. Upgrade your Free Fire gameplay today!">
+    <meta name="keywords" content="Xenon Store, Free Fire Diamonds, Free Fire Top Up, FF Weekly Membership, FF Monthly Membership, Level Up Pass, Evo Access, Buy Free Fire Accounts, Garena Shells, Cheap Diamonds Free Fire">
+    <meta name="theme-color" content="#070708">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="https://i.postimg.cc/L4QDxTxM/Chat-GPT-Image-Jun-13-2026-06-24-44-PM.png">
+  <meta name="google-site-verification" content="uwVhA5m8ja5e3bArGG7Wb4Qr8t4Ms9UgtZcR0thBEmE" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://xenonstoreff.vercel.app">
+    <meta property="og:title" content="Xenon Store - Premium Free Fire Diamonds & Gaming Marketplace">
+    <meta property="og:description" content="Get fast and secure Free Fire diamond top-ups, weekly/monthly memberships, level-up passes, and premium accounts at unbeatable prices.">
+    <meta property="og:image" content="https://i.postimg.cc/L4QDxTxM/Chat-GPT-Image-Jun-13-2026-06-24-44-PM.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://xenonstoreff.vercel.app">
+    <meta property="twitter:title" content="Xenon Store - Premium Free Fire Diamonds & Gaming Marketplace">
+    <meta property="twitter:description" content="Get fast and secure Free Fire diamond top-ups, weekly/monthly memberships, level-up passes, and premium accounts at unbeatable prices.">
+    <meta property="twitter:image" content="https://i.postimg.cc/L4QDxTxM/Chat-GPT-Image-Jun-13-2026-06-24-44-PM.png">
+    <script type="text/javascript" src="https://www.payhere.lk/lib/payhere.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
