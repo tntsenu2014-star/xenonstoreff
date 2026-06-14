@@ -24,10 +24,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'SUPER_SECRET_KEY_DEV';
 // @ts-ignore
 const currentDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
+const PORT = 3000;
 
+async function startServer() {
   // Request logger helper to diagnose routing/Vite fallback issues
   app.use((req, res, next) => {
     next();
@@ -481,9 +481,19 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  // Only start listening if we are not in a serverless environment (like Vercel)
+  if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  } else if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+    // Standard production start (not Vercel)
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;

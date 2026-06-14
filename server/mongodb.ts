@@ -2,82 +2,85 @@ import { MongoClient, Db } from 'mongodb';
 import fs from 'fs';
 import path from 'path';
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://miyula:12miyula.@cluster0.imevbm5.mongodb.net/gamingr4d?retryWrites=true&w=majority&appName=Cluster0";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://miyula:12miyula.@cluster0.imevbm5.mongodb.net/?appName=Cluster0";
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
+let connectionPromise: Promise<Db> | null = null;
 
 // JSON File database fallback in case MongoDB fails or is offline
 const LOCAL_DB_PATH = path.join(process.cwd(), 'db-fallback.json');
 
 function readLocalDb(): Record<string, any[]> {
-  if (!fs.existsSync(LOCAL_DB_PATH)) {
-    return {};
-  }
   try {
+    if (!fs.existsSync(LOCAL_DB_PATH)) {
+      return {};
+    }
     const raw = fs.readFileSync(LOCAL_DB_PATH, 'utf-8');
     return JSON.parse(raw) || {};
   } catch (err) {
-    console.error("Failed to read local fallback DB, using empty state:", err);
+    console.error("Failed to read local fallback DB:", err);
     return {};
   }
 }
 
 function writeLocalDb(data: Record<string, any[]>) {
   try {
+    // Vercel and some environments have read-only filesystems
     fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
-    console.error("Failed to write local fallback DB:", err);
+    // Quietly log and ignore if filesystem is read-only
+    console.warn("Could not write to local fallback DB (likely read-only filesystem):", err);
   }
 }
 
-export async function initDatabase() {
-  console.log("Connecting to MongoDB database...");
-  try {
-    client = new MongoClient(MONGODB_URI, {
-      connectTimeoutMS: 8000,
-      serverSelectionTimeoutMS: 8000,
-    });
-    await client.connect();
-    db = client.db(); // uses database from connection string (gamingr4d)
+export async function initDatabase(): Promise<Db> {
+  if (db) return db;
+  if (connectionPromise) return connectionPromise;
+
+  connectionPromise = (async () => {
+    console.log("Initializing database connection...");
     
-    // Verify that the database is genuinely responsive (not firewalled/IP blocked)
-    const pingPromise = db.command({ ping: 1 });
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Database connection ping timed out after 3 seconds")), 3000)
-    );
-    await Promise.race([pingPromise, timeoutPromise]);
-    console.log("MongoDB connection verified with ping success!");
-    
-    try {
-      // Quietly attempt to drop deprecated unique indexes to avoid legacy index clashes (e.g. orderNumber_1)
-      await db.collection('orders').dropIndex('orderNumber_1');
-      console.log("Deprecated unique index 'orderNumber_1' dropped successfully.");
-    } catch (indexDropErr) {
-      // Ignore if index doesn't exist
+    if (!MONGODB_URI) {
+      console.error("CRITICAL ERROR: MONGODB_URI is not defined and no fallback available.");
+      db = null;
+      initLocalDb();
+      throw new Error("MONGODB_URI missing");
     }
 
     try {
-      // Drop username unique index since it causes issues with null usernames
-      await db.collection('users').dropIndex('username_1');
-      console.log("Deprecated unique index 'username_1' dropped successfully.");
-    } catch (indexDropErr) {
-      // Ignore if index doesn't exist
+      console.log(`Connecting to MongoDB...`);
+      client = new MongoClient(MONGODB_URI, {
+        connectTimeoutMS: 15000,
+        serverSelectionTimeoutMS: 15000,
+      });
+      await client.connect();
+      db = client.db();
+      
+      // Verify connection
+      await db.command({ ping: 1 });
+      console.log("MongoDB connection established and verified successfully.");
+      
+      // Clean up legacy indexes asynchronously
+      seedMongodbIfEmpty().catch(e => console.error("Database seeding background error:", e));
+      
+      return db;
+    } catch (err: any) {
+      console.error("DATABASE CONNECTION FAILED!");
+      console.error("Error Name:", err.name);
+      console.error("Error Message:", err.message);
+      
+      if (err.message?.includes('ETIMEDOUT') || err.message?.includes('selection timeout')) {
+        console.error("This is likely a firewall issue or IP block. Ensure that your MongoDB Atlas cluster allows access from 'Anywhere' (0.0.0.0/0) for Vercel to connect.");
+      }
+      
+      db = null;
+      initLocalDb();
+      throw err;
     }
+  })();
 
-    try {
-      await db.collection('users').dropIndex('email_1');
-      console.log("Deprecated unique index 'email_1' dropped successfully.");
-    } catch (indexDropErr) {
-      // Ignore if index doesn't exist
-    }
-    
-    await seedMongodbIfEmpty();
-  } catch (err) {
-    console.error("Failed to connect to MongoDB, using local file DB fallback. Error:", err);
-    db = null;
-    initLocalDb();
-  }
+  return connectionPromise;
 }
 
 function initLocalDb() {
@@ -436,6 +439,12 @@ export function makeId(prefix = ''): string {
 }
 
 export async function getList(table: string): Promise<any[]> {
+  try {
+    await initDatabase();
+  } catch (e) {
+    // Falls back to local in initDatabase
+  }
+
   if (db) {
     try {
       const results = await db.collection(table).find({}).toArray();
@@ -454,6 +463,10 @@ export async function getList(table: string): Promise<any[]> {
 }
 
 export async function getDocById(table: string, id: string): Promise<any | null> {
+  try {
+    await initDatabase();
+  } catch (e) {}
+
   if (db) {
     try {
       const doc = await db.collection(table).findOne({ id: id });
@@ -472,6 +485,10 @@ export async function getDocById(table: string, id: string): Promise<any | null>
 }
 
 export async function insertDoc(table: string, docData: any): Promise<string> {
+  try {
+    await initDatabase();
+  } catch (e) {}
+
   const idToSend = docData.id || makeId();
   const docToInsert = { ...docData, id: idToSend };
 
@@ -565,6 +582,10 @@ export async function insertDoc(table: string, docData: any): Promise<string> {
 }
 
 export async function updateDocById(table: string, id: string, patch: any): Promise<void> {
+  try {
+    await initDatabase();
+  } catch (e) {}
+
   if (db) {
     try {
       await db.collection(table).updateOne({ id: id }, { $set: patch });
@@ -584,6 +605,10 @@ export async function updateDocById(table: string, id: string, patch: any): Prom
 }
 
 export async function deleteDocById(table: string, id: string): Promise<void> {
+  try {
+    await initDatabase();
+  } catch (e) {}
+
   if (db) {
     try {
       await db.collection(table).deleteOne({ id: id });
