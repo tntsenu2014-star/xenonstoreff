@@ -2,14 +2,17 @@ import { MongoClient, Db } from 'mongodb';
 import fs from 'fs';
 import path from 'path';
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://miyula:12miyula.@cluster0.imevbm5.mongodb.net/?appName=Cluster0";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://miyula:12miyula.@cluster0.imevbm5.mongodb.net/gamingr4d?appName=Cluster0";
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
 let connectionPromise: Promise<Db> | null = null;
 
 // JSON File database fallback in case MongoDB fails or is offline
-const LOCAL_DB_PATH = path.join(process.cwd(), 'db-fallback.json');
+const IS_VERCEL = process.env.VERCEL === '1';
+const LOCAL_DB_PATH = IS_VERCEL 
+  ? path.join('/tmp', 'db-fallback.json')
+  : path.join(process.cwd(), 'db-fallback.json');
 
 function readLocalDb(): Record<string, any[]> {
   try {
@@ -55,7 +58,7 @@ export async function initDatabase(): Promise<Db> {
         serverSelectionTimeoutMS: 15000,
       });
       await client.connect();
-      db = client.db();
+      db = client.db('gamingr4d');
       
       // Verify connection
       await db.command({ ping: 1 });
