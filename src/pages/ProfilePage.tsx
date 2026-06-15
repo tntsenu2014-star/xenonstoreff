@@ -126,28 +126,29 @@ export default function ProfilePage() {
     setIsUploadingImage(true);
     try {
       const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result;
-        
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: file.name,
-            mimeType: file.type,
-            data: base64String
-          })
-        });
-        
-        if (!res.ok) throw new Error('Upload failed');
-        const data = await res.json();
-        await updateProfile({ photoURL: data.url });
-        toast.success("Profile photo updated!");
-      };
-      reader.readAsDataURL(file);
+      const base64String = await new Promise<string>((resolve, reject) => {
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+      });
+      
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          data: base64String
+        })
+      });
+      
+      if (!res.ok) throw new Error('Upload failed with status ' + res.status);
+      const data = await res.json();
+      await updateProfile({ photoURL: data.url });
+      toast.success("Profile photo updated!");
     } catch (err: any) {
       console.error("Failed to upload image:", err);
-      toast.error("Upload failed", { description: err.message });
+      toast.error("Upload failed", { description: err.message || "Something went wrong" });
     } finally {
       setIsUploadingImage(false);
     }

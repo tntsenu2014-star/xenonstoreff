@@ -13,7 +13,8 @@ import {
   insertDoc, 
   updateDocById, 
   deleteDocById,
-  makeId 
+  makeId,
+  isDbConnected
 } from './server/mongodb.js';
 
 dotenv.config();
@@ -35,6 +36,16 @@ app.use((req, res, next) => {
 // Initialize database in background
 initDatabase().catch(err => {
   console.error("Database connection initialization failed in background:", err);
+});
+
+// API routes go here FIRST
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: Date.now(),
+    database: isDbConnected() ? 'connected' : 'disconnected',
+    env: process.env.NODE_ENV
+  });
 });
 
 // === File Upload and Serving Routes ===
@@ -377,12 +388,13 @@ app.post('/api/payhere-notify', async (req, res) => {
   res.status(200).send("OK");
 });
 
-app.post('/api/notify-order', async (req, res) => {
-  const { orderId, customerName, packageName, amount, type } = req.body;
+// --- Emails ---
+async function sendOrderNotification(data: { orderId: string; customerName: string; packageName: string; amount: number; type: 'PACKAGE' | 'ACCOUNT' }) {
+  const { orderId, customerName, packageName, amount, type } = data;
   const resendKey = process.env.RESEND_API_KEY;
   const adminEmail = process.env.ADMIN_EMAIL;
 
-  if (!resendKey || !adminEmail) return res.status(200).json({ status: 'skipped' });
+  if (!resendKey || !adminEmail) return { status: 'skipped' };
 
   try {
     const resend = new Resend(resendKey);
@@ -402,11 +414,16 @@ app.post('/api/notify-order', async (req, res) => {
       subject: subject,
       html: html,
     });
-    res.json({ status: 'success' });
+    return { status: 'success' };
   } catch (error) {
     console.error('Email notify error:', error);
-    res.status(500).json({ error: 'Failed' });
+    return { status: 'error' };
   }
+}
+
+app.post('/api/notify-order', async (req, res) => {
+  const result = await sendOrderNotification(req.body);
+  res.json(result);
 });
 
 // API Catch-all

@@ -2,11 +2,13 @@ import { MongoClient, Db } from 'mongodb';
 import fs from 'fs';
 import path from 'path';
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://miyula:12miyula.@cluster0.imevbm5.mongodb.net/gamingr4d?appName=Cluster0";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://miyula:12%40miyula@cluster0.11lpupv.mongodb.net/gamingr4d?retryWrites=true&w=majority&appName=Cluster0";
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
 let connectionPromise: Promise<Db> | null = null;
+
+const DB_NAME = 'gamingr4d';
 
 // JSON File database fallback in case MongoDB fails or is offline
 const IS_VERCEL = process.env.VERCEL === '1';
@@ -37,48 +39,49 @@ function writeLocalDb(data: Record<string, any[]>) {
   }
 }
 
+export function isDbConnected(): boolean {
+  return db !== null;
+}
+
 export async function initDatabase(): Promise<Db> {
   if (db) return db;
   if (connectionPromise) return connectionPromise;
 
   connectionPromise = (async () => {
-    console.log("Initializing database connection...");
+    console.log(`[DB] Attempting to connect to MongoDB Atlas...`);
     
     if (!MONGODB_URI) {
-      console.error("CRITICAL ERROR: MONGODB_URI is not defined and no fallback available.");
-      db = null;
+      console.error("[DB] CRITICAL ERROR: MONGODB_URI is not defined.");
       initLocalDb();
       throw new Error("MONGODB_URI missing");
     }
 
     try {
-      console.log(`Connecting to MongoDB...`);
       client = new MongoClient(MONGODB_URI, {
-        connectTimeoutMS: 15000,
-        serverSelectionTimeoutMS: 15000,
+        connectTimeoutMS: 8000,
+        serverSelectionTimeoutMS: 8000,
       });
       await client.connect();
-      db = client.db('gamingr4d');
+      db = client.db(DB_NAME);
       
       // Verify connection
       await db.command({ ping: 1 });
-      console.log("MongoDB connection established and verified successfully.");
+      console.log(`[DB] SUCCESS: Connected to MongoDB cluster. Database: "${DB_NAME}"`);
       
-      // Clean up legacy indexes asynchronously
-      seedMongodbIfEmpty().catch(e => console.error("Database seeding background error:", e));
+      // Seed if necessary
+      await seedMongodbIfEmpty();
       
       return db;
     } catch (err: any) {
-      console.error("DATABASE CONNECTION FAILED!");
-      console.error("Error Name:", err.name);
-      console.error("Error Message:", err.message);
+      console.error("[DB] CONNECTION FAILED!");
+      console.error(`[DB] Message: ${err.message}`);
       
-      if (err.message?.includes('ETIMEDOUT') || err.message?.includes('selection timeout')) {
-        console.error("This is likely a firewall issue or IP block. Ensure that your MongoDB Atlas cluster allows access from 'Anywhere' (0.0.0.0/0) for Vercel to connect.");
+      if (err.message?.includes('ETIMEDOUT')) {
+        console.error("[DB] Timeout error. Possible firewall/IP whitelist issue.");
       }
       
       db = null;
-      initLocalDb();
+      initLocalDb(); 
       throw err;
     }
   })();
@@ -144,7 +147,7 @@ function initLocalDb() {
       },
       {
         id: 'b2',
-        title: 'FF Profile DP Generator',
+        title: 'Creative Studio',
         imageUrl: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=1200',
         linkUrl: '/service/profile-dp',
         isActive: true,
@@ -160,7 +163,7 @@ function initLocalDb() {
     data['services'] = [
       {
         id: 's1',
-        title: 'FF Profile DP Generator',
+        title: 'Creative Studio',
         description: 'Generate high-quality customized Free Fire profile DP with your player ID, name, avatar, and style.',
         imageUrl: 'https://images.unsplash.com/photo-1612287230202-1bf1d85d1bdf?auto=format&fit=crop&q=80&w=400',
         bannerUrl: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=1200',
@@ -254,10 +257,12 @@ function initLocalDb() {
 
 async function seedMongodbIfEmpty() {
   if (!db) return;
+  console.log(`[DB] Checking if seeding is required for "${DB_NAME}"...`);
   try {
     // 1. Settings
     const settingsCount = await db.collection('settings').countDocuments();
     if (settingsCount === 0) {
+      console.log(`[DB] Seeding table "settings"...`);
       await db.collection('settings').insertOne({
         id: 'config',
         siteName: 'GAMING R4D Store',
@@ -309,7 +314,7 @@ async function seedMongodbIfEmpty() {
         },
         {
           id: 'b2',
-          title: 'FF Profile DP Generator',
+          title: 'Creative Studio',
           imageUrl: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=1200',
           linkUrl: '/service/profile-dp',
           isActive: true,
@@ -319,6 +324,9 @@ async function seedMongodbIfEmpty() {
       ];
       await db.collection('banners').insertMany(bList);
       console.log("MongoDB banners seeded.");
+    } else {
+      // Ensure existing b2 banner gets renamed if already seeded
+      await db.collection('banners').updateOne({ id: 'b2' }, { $set: { title: 'Creative Studio' } }).catch(e => {});
     }
 
     // 4. Services
@@ -327,7 +335,7 @@ async function seedMongodbIfEmpty() {
       const sList = [
         {
           id: 's1',
-          title: 'FF Profile DP Generator',
+          title: 'Creative Studio',
           description: 'Generate high-quality customized Free Fire profile DP with your player ID, name, avatar, and style.',
           imageUrl: 'https://images.unsplash.com/photo-1612287230202-1bf1d85d1bdf?auto=format&fit=crop&q=80&w=400',
           bannerUrl: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=1200',
@@ -337,6 +345,9 @@ async function seedMongodbIfEmpty() {
       ];
       await db.collection('services').insertMany(sList);
       console.log("MongoDB services seeded.");
+    } else {
+      // Ensure existing s1 service gets renamed if already seeded
+      await db.collection('services').updateOne({ id: 's1' }, { $set: { title: 'Creative Studio' } }).catch(e => {});
     }
 
     // 5. Service Templates

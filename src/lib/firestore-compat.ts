@@ -120,7 +120,7 @@ const CLIENT_FALLBACKS: Record<string, any[]> = {
     },
     {
       id: 'b2',
-      title: 'FF Profile DP Generator',
+      title: 'Creative Studio',
       imageUrl: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=1200',
       linkUrl: '/service/profile-dp',
       isActive: true,
@@ -143,7 +143,7 @@ const CLIENT_FALLBACKS: Record<string, any[]> = {
   services: [
     {
       id: 's1',
-      title: 'FF Profile DP Generator',
+      title: 'Creative Studio',
       description: 'Generate high-quality customized Free Fire profile DP with your player ID, name, avatar, and style.',
       imageUrl: 'https://images.unsplash.com/photo-1612287230202-1bf1d85d1bdf?auto=format&fit=crop&q=80&w=400',
       bannerUrl: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=1200',
